@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Voice Game Mario Demo - Sprite</title>
+<title>Voice Game Mario Demo - Responsive</title>
 <style>
 body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f0f0; margin: 0; padding: 50px; }
 #game-container { position: relative; width: 640px; height: 360px; margin: auto; background-color: #333; border-radius: 10px; overflow: hidden; }
@@ -17,34 +17,42 @@ button:hover { background-color: #0056b3; }
 #progress-container { width: 100%; height: 20px; background: #555; border-radius: 10px; margin-top: 10px; }
 #progress-bar { width: 0%; height: 100%; background-color: #4caf50; border-radius: 10px; transition: width 0.3s; }
 #scoreboard { font-size: 1.5rem; margin-top: 10px; }
+#video-container { display: none; }
+#sprite-container { display: none; width: 100%; height: 100%; }
 </style>
 </head>
 <body>
-<h1>Voice Game Demo - Mario Sprite</h1>
+<h1>Voice Game Demo - Responsive Mario</h1>
 <div>
 <button onclick="setMode(true)">Strict Mode</button>
 <button onclick="setMode(false)">Not So Strict Mode</button>
 </div>
 <div id="game-container">
-<div id="mario"><img src="mario.png"></div>
-<div id="overlay">
-<div id="object-card">Apple</div>
-<div id="status">Choose a mode to start</div>
-<div id="scoreboard">Score: 0</div>
-<div id="progress-container">
-<div id="progress-bar"></div>
-</div>
-<div>
-<button onclick="skipObject()">Skip</button>
-</div>
-</div>
+  <div id="video-container">
+    <video id="marioVideo" preload="auto" width="640" height="360" playbackRate="2.0">
+      <source src="speedrun.mp4" type="video/mp4">
+      Your browser does not support the video tag.
+    </video>
+  </div>
+  <div id="sprite-container">
+    <div id="mario"><img src="mario.png" alt="Mario"></div>
+  </div>
+  <div id="overlay">
+    <div id="object-card">Apple</div>
+    <div id="status">Choose a mode to start</div>
+    <div id="scoreboard">Score: 0</div>
+    <div id="progress-container">
+      <div id="progress-bar"></div>
+    </div>
+    <div>
+      <button onclick="skipObject()">Skip</button>
+    </div>
+  </div>
 </div>
 <script>
+const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 const objects = ['Apple','Book','Clock','Pencil','Chair','Cup','Phone','Bag','Lamp','Key','Table','Shoe','Bottle','Notebook','Cap','Glasses','Watch','Wallet','Paper','Door'];
-const objectAlternatives = {
-  'cap': ['cap','hat','hot','tap'],
-  'pencil': ['pencil','pen','pin','pan']
-};
+const objectAlternatives = { 'cap': ['cap','hat','hot','tap'], 'pencil': ['pencil','pen','pin','pan'] };
 
 let randomizedObjects = shuffleArray(objects.slice());
 let currentIndex = 0;
@@ -55,8 +63,27 @@ let strictMode = true;
 let recognition;
 let startTime;
 
+// Video elements
+const videoContainer = document.getElementById('video-container');
+const video = document.getElementById('marioVideo');
+let videoSegments = [];
+
+// Sprite elements
+const spriteContainer = document.getElementById('sprite-container');
 const mario = document.getElementById('mario');
 const totalWords = 20;
+
+// Initialize based on device
+if(isMobile){
+  spriteContainer.style.display='block';
+} else {
+  videoContainer.style.display='block';
+  video.addEventListener('loadedmetadata', ()=>{
+    const segmentsCount = 40;
+    videoSegments = Array.from({length:segmentsCount}, (_,i)=>({start:i*(video.duration/segmentsCount), end:(i+1)*(video.duration/segmentsCount)}));
+  });
+  video.playbackRate = 2.0;
+}
 
 function shuffleArray(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
 
@@ -71,7 +98,7 @@ function setMode(strict){
   startTime = Date.now();
   updateCard();
   updateScore();
-  moveMario(0);
+  if(isMobile){ moveMario(0); }
   startRecognition();
 }
 
@@ -91,9 +118,7 @@ function updateCard(){
 function isCorrect(spoken, expected){
   spoken = spoken.toLowerCase();
   expected = expected.toLowerCase();
-  if(objectAlternatives[expected]){
-    return objectAlternatives[expected].includes(spoken);
-  }
+  if(objectAlternatives[expected]){ return objectAlternatives[expected].includes(spoken); }
   return strictMode ? spoken===expected : spoken.includes(expected);
 }
 
@@ -116,7 +141,8 @@ function startRecognition(){
       multiplier++;
       document.getElementById('status').textContent = `✅ Correct! You said '${spoken}'`;
       currentIndex++;
-      moveMario(currentIndex/totalWords);
+      if(isMobile){ moveMario(currentIndex/totalWords); }
+      else { playVideoSegment(); }
       startTime=Date.now();
       updateCard();
       updateScore();
@@ -133,8 +159,20 @@ function startRecognition(){
 }
 
 function moveMario(percent){
-  const containerWidth = 640-50; // container width minus Mario width
+  const containerWidth = 640-50;
   mario.style.left = `${containerWidth*percent}px`;
+}
+
+function playVideoSegment(){
+  if(videoSegments.length===0) return;
+  const segmentIndex = currentIndex*2; // advance 2 segments per correct answer
+  if(segmentIndex>=videoSegments.length) return;
+  video.currentTime = videoSegments[segmentIndex].start;
+  video.play();
+  const stopHandler = ()=>{
+    if(video.currentTime>=videoSegments[segmentIndex].end){ video.pause(); video.removeEventListener('timeupdate',stopHandler); }
+  };
+  video.addEventListener('timeupdate',stopHandler);
 }
 
 function skipObject(){
@@ -142,7 +180,7 @@ function skipObject(){
   score-=5;
   multiplier=1;
   currentIndex++;
-  moveMario(currentIndex/totalWords);
+  if(isMobile){ moveMario(currentIndex/totalWords); }
   updateCard();
   updateScore();
 }
