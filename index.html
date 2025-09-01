@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Voice Game Mario Demo - Extended Video Segments</title>
+<title>Voice Game Mario Demo - Smooth Video Segments</title>
 <style>
 body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f0f0; margin: 0; padding: 50px; }
 #game-container { position: relative; width: 640px; height: 360px; margin: auto; background-color: #333; border-radius: 10px; overflow: hidden; }
@@ -19,14 +19,14 @@ button:hover { background-color: #0056b3; }
 </style>
 </head>
 <body>
-<h1>Voice Game Demo - Extended Video Segments</h1>
+<h1>Voice Game Demo - Smooth Video with Pauses</h1>
 <div>
 <button onclick="setMode(true)">Strict Mode</button>
 <button onclick="setMode(false)">Not So Strict Mode</button>
 </div>
 <div id="game-container">
   <div id="video-container">
-    <video id="marioVideo" preload="auto" width="640" height="360" playbackRate="2.0">
+    <video id="marioVideo" preload="auto" width="640" height="360">
       <source src="speedrun.mp4" type="video/mp4">
       Your browser does not support the video tag.
     </video>
@@ -47,7 +47,7 @@ button:hover { background-color: #0056b3; }
 const objects = ['Apple','Book','Clock','Pencil','Chair','Cup','Phone','Bag','Lamp','Key','Table','Shoe','Bottle','Notebook','Cap','Glasses','Watch','Wallet','Paper','Door'];
 const objectAlternatives = { 'cap': ['cap','hat','hot','tap'], 'pencil': ['pencil','pen','pin','pan'] };
 
-let randomizedObjects = shuffleArray(objects.slice());
+let randomizedObjects = shuffleArray(objects.slice(0,7)); // 7 words
 let currentIndex = 0;
 let skipped = [];
 let score = 0;
@@ -57,16 +57,7 @@ let recognition;
 let startTime;
 
 const video = document.getElementById('marioVideo');
-let videoSegments = [];
-const totalWords = 20;
-
-video.addEventListener('loadedmetadata', () => {
-  const segmentsCount = 40;
-  videoSegments = Array.from({length:segmentsCount}, (_,i)=>({
-    start: i*(video.duration/segmentsCount),
-    end: (i+1)*(video.duration/segmentsCount)
-  }));
-});
+const segmentDuration = 5; // seconds of video after each word
 
 function shuffleArray(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
 
@@ -74,21 +65,15 @@ function setMode(strict){
   strictMode = strict;
   document.getElementById('status').textContent = `Mode set to ${strict ? 'Strict' : 'Not So Strict'}!`; 
   currentIndex = 0;
-  randomizedObjects = shuffleArray(objects.slice());
+  randomizedObjects = shuffleArray(objects.slice(0,7));
   skipped = [];
   score = 0;
   multiplier = 1;
   startTime = Date.now();
   updateCard();
   updateScore();
-
-  if(videoSegments.length > 0){
-    playSegment(currentIndex*2);
-  } else {
-    video.addEventListener('loadedmetadata', ()=>{
-      playSegment(currentIndex*2);
-    }, { once: true });
-  }
+  document.getElementById('overlay').style.display = 'block';
+  showWord();
 }
 
 function updateCard(){
@@ -111,33 +96,21 @@ function isCorrect(spoken, expected){
   return strictMode ? spoken===expected : spoken.includes(expected);
 }
 
-function playSegment(segmentIndex){
-  if(segmentIndex >= videoSegments.length) return;
-
-  // Hide overlay while video is playing
+function playVideoSegment(){
+  // Hide overlay while video plays
   document.getElementById('overlay').style.display = 'none';
-
-  let segment = videoSegments[segmentIndex];
-  // Extend segment length by 50% for smoother display
-  let extendedEnd = Math.min(video.duration, segment.end + (segment.end - segment.start)*0.5);
-
-  video.currentTime = segment.start;
+  const startTimeVideo = video.currentTime;
   video.play();
 
-  const stopHandler = () => {
-    if(video.currentTime >= extendedEnd){
-      video.pause();
-      video.removeEventListener('timeupdate', stopHandler);
-
-      // Show overlay for the word after segment
-      document.getElementById('overlay').style.display = 'block';
-      showWord();
-    }
-  };
-  video.addEventListener('timeupdate', stopHandler);
+  setTimeout(()=>{
+    video.pause();
+    document.getElementById('overlay').style.display = 'block';
+    showWord();
+  }, segmentDuration*1000);
 }
 
 function showWord(){
+  if(currentIndex>=randomizedObjects.length) return;
   document.getElementById('object-card').textContent = randomizedObjects[currentIndex];
   startRecognition();
 }
@@ -162,7 +135,7 @@ function startRecognition(){
       document.getElementById('status').textContent = `✅ Correct! You said '${spoken}'`;
       currentIndex++;
       updateScore();
-      playSegment(currentIndex*2);
+      playVideoSegment();
     } else {
       multiplier=1;
       document.getElementById('status').textContent=`❌ You said '${spoken}'. Multiplier reset.`;
@@ -180,7 +153,7 @@ function skipObject(){
   multiplier=1;
   currentIndex++;
   updateScore();
-  playSegment(currentIndex*2);
+  playVideoSegment();
 }
 
 function reviewSkipped(){
