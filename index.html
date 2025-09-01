@@ -3,32 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Voice Game Mario Demo - Overlay</title>
+<title>Voice Game Mario Demo - Sprite</title>
 <style>
 body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f0f0; margin: 0; padding: 50px; }
-#video-container { position: relative; display: inline-block; }
-#marioVideo { width: 640px; height: 360px; }
+#game-container { position: relative; width: 640px; height: 360px; margin: auto; background-color: #333; border-radius: 10px; overflow: hidden; }
+#mario { position: absolute; left: 0; bottom: 10px; transition: left 0.5s; }
+#mario img { width: 50px; }
 #overlay { position: absolute; top: 10px; left: 10px; right: 10px; color: white; background-color: rgba(0,0,0,0.5); padding: 10px; border-radius: 10px; text-align: center; }
 #object-card { font-size: 2rem; margin: 10px 0; }
 #status { margin-top: 10px; font-size: 1.2rem; color: #fff; }
 button { margin: 10px 5px; padding: 10px 20px; font-size: 1rem; border: none; border-radius: 8px; background-color: #007bff; color: white; cursor: pointer; }
 button:hover { background-color: #0056b3; }
-#progress-container { width: 100%; height: 20px; background: #333; border-radius: 10px; margin-top: 10px; }
+#progress-container { width: 100%; height: 20px; background: #555; border-radius: 10px; margin-top: 10px; }
 #progress-bar { width: 0%; height: 100%; background-color: #4caf50; border-radius: 10px; transition: width 0.3s; }
 #scoreboard { font-size: 1.5rem; margin-top: 10px; }
 </style>
 </head>
 <body>
-<h1>Voice Game Demo - Mario Speedrun</h1>
+<h1>Voice Game Demo - Mario Sprite</h1>
 <div>
 <button onclick="setMode(true)">Strict Mode</button>
 <button onclick="setMode(false)">Not So Strict Mode</button>
 </div>
-<div id="video-container">
-<video id="marioVideo" preload="auto" playbackRate="2.0">
-<source src="speedrun.mp4" type="video/mp4">
-Your browser does not support the video tag.
-</video>
+<div id="game-container">
+<div id="mario"><img src="mario.png"></div>
 <div id="overlay">
 <div id="object-card">Apple</div>
 <div id="status">Choose a mode to start</div>
@@ -56,16 +54,9 @@ let multiplier = 1;
 let strictMode = true;
 let recognition;
 let startTime;
-let currentSegment = 0;
 
-const video = document.getElementById('marioVideo');
-const segments = Array.from({length:40}, (_,i)=>({start: i* (video.duration/40), end: (i+1)*(video.duration/40)}));
-video.addEventListener('loadedmetadata', ()=>{
-  for(let i=0;i<segments.length;i++){
-    segments[i].start = i*(video.duration/40);
-    segments[i].end = (i+1)*(video.duration/40);
-  }
-});
+const mario = document.getElementById('mario');
+const totalWords = 20;
 
 function shuffleArray(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
 
@@ -77,10 +68,10 @@ function setMode(strict){
   skipped = [];
   score = 0;
   multiplier = 1;
-  currentSegment = 0;
   startTime = Date.now();
   updateCard();
   updateScore();
+  moveMario(0);
   startRecognition();
 }
 
@@ -124,8 +115,8 @@ function startRecognition(){
       score += 10*multiplier*speedMultiplier;
       multiplier++;
       document.getElementById('status').textContent = `✅ Correct! You said '${spoken}'`;
-      playNextSegment();
       currentIndex++;
+      moveMario(currentIndex/totalWords);
       startTime=Date.now();
       updateCard();
       updateScore();
@@ -141,19 +132,9 @@ function startRecognition(){
   recognition.onend=()=>{ if(currentIndex<randomizedObjects.length) recognition.start(); };
 }
 
-function playNextSegment(){
-  if(currentSegment>=segments.length) return;
-  video.currentTime = segments[currentSegment].start;
-  video.playbackRate = 2.0;
-  video.play();
-  const stopHandler = ()=>{
-    if(video.currentTime>=segments[currentSegment].end){
-      video.pause();
-      video.removeEventListener('timeupdate',stopHandler);
-    }
-  };
-  video.addEventListener('timeupdate',stopHandler);
-  currentSegment+=2; // 40 segments for 20 words, advance 2 segments per correct answer
+function moveMario(percent){
+  const containerWidth = 640-50; // container width minus Mario width
+  mario.style.left = `${containerWidth*percent}px`;
 }
 
 function skipObject(){
@@ -161,6 +142,7 @@ function skipObject(){
   score-=5;
   multiplier=1;
   currentIndex++;
+  moveMario(currentIndex/totalWords);
   updateCard();
   updateScore();
 }
