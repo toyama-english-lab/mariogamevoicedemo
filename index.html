@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Voice Game Mario Demo - Synchronized Video Fixed</title>
+<title>Voice Game Mario Demo - Extended Video Segments</title>
 <style>
 body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f0f0; margin: 0; padding: 50px; }
 #game-container { position: relative; width: 640px; height: 360px; margin: auto; background-color: #333; border-radius: 10px; overflow: hidden; }
@@ -19,7 +19,7 @@ button:hover { background-color: #0056b3; }
 </style>
 </head>
 <body>
-<h1>Voice Game Demo - Synchronized Video Fixed</h1>
+<h1>Voice Game Demo - Extended Video Segments</h1>
 <div>
 <button onclick="setMode(true)">Strict Mode</button>
 <button onclick="setMode(false)">Not So Strict Mode</button>
@@ -82,7 +82,6 @@ function setMode(strict){
   updateCard();
   updateScore();
 
-  // Wait for metadata to ensure segments are ready
   if(videoSegments.length > 0){
     playSegment(currentIndex*2);
   } else {
@@ -113,13 +112,25 @@ function isCorrect(spoken, expected){
 }
 
 function playSegment(segmentIndex){
-  if(segmentIndex>=videoSegments.length) return;
-  video.currentTime = videoSegments[segmentIndex].start;
+  if(segmentIndex >= videoSegments.length) return;
+
+  // Hide overlay while video is playing
+  document.getElementById('overlay').style.display = 'none';
+
+  let segment = videoSegments[segmentIndex];
+  // Extend segment length by 50% for smoother display
+  let extendedEnd = Math.min(video.duration, segment.end + (segment.end - segment.start)*0.5);
+
+  video.currentTime = segment.start;
   video.play();
+
   const stopHandler = () => {
-    if(video.currentTime >= videoSegments[segmentIndex].end){
+    if(video.currentTime >= extendedEnd){
       video.pause();
       video.removeEventListener('timeupdate', stopHandler);
+
+      // Show overlay for the word after segment
+      document.getElementById('overlay').style.display = 'block';
       showWord();
     }
   };
