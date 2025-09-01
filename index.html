@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Voice Game Mario Demo - Synchronized Video</title>
+<title>Voice Game Mario Demo - Synchronized Video Fixed</title>
 <style>
 body { font-family: Arial, sans-serif; text-align: center; background-color: #f0f0f0; margin: 0; padding: 50px; }
 #game-container { position: relative; width: 640px; height: 360px; margin: auto; background-color: #333; border-radius: 10px; overflow: hidden; }
@@ -19,7 +19,7 @@ button:hover { background-color: #0056b3; }
 </style>
 </head>
 <body>
-<h1>Voice Game Demo - Synchronized Video</h1>
+<h1>Voice Game Demo - Synchronized Video Fixed</h1>
 <div>
 <button onclick="setMode(true)">Strict Mode</button>
 <button onclick="setMode(false)">Not So Strict Mode</button>
@@ -57,8 +57,16 @@ let recognition;
 let startTime;
 
 const video = document.getElementById('marioVideo');
+let videoSegments = [];
 const totalWords = 20;
-const videoSegments = Array.from({length:40}, (_,i)=>({start:i*(video.duration/40), end:(i+1)*(video.duration/40)}));
+
+video.addEventListener('loadedmetadata', () => {
+  const segmentsCount = 40;
+  videoSegments = Array.from({length:segmentsCount}, (_,i)=>({
+    start: i*(video.duration/segmentsCount),
+    end: (i+1)*(video.duration/segmentsCount)
+  }));
+});
 
 function shuffleArray(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
 
@@ -73,7 +81,15 @@ function setMode(strict){
   startTime = Date.now();
   updateCard();
   updateScore();
-  playSegment(currentIndex*2); // start first video segment
+
+  // Wait for metadata to ensure segments are ready
+  if(videoSegments.length > 0){
+    playSegment(currentIndex*2);
+  } else {
+    video.addEventListener('loadedmetadata', ()=>{
+      playSegment(currentIndex*2);
+    }, { once: true });
+  }
 }
 
 function updateCard(){
@@ -135,7 +151,7 @@ function startRecognition(){
       document.getElementById('status').textContent = `✅ Correct! You said '${spoken}'`;
       currentIndex++;
       updateScore();
-      playSegment(currentIndex*2); // play next segment
+      playSegment(currentIndex*2);
     } else {
       multiplier=1;
       document.getElementById('status').textContent=`❌ You said '${spoken}'. Multiplier reset.`;
