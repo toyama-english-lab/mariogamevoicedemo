@@ -2,17 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Fruit Voice Game</title>
+  <title>Fruit & Animal Voice Game</title>
   <style>
     body {
       margin: 0;
+      font-family: Arial, sans-serif;
+      background: #000;
+      color: white;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: #000;
-      color: white;
-      font-family: Arial, sans-serif;
+    }
+    #gameContainer {
+      position: relative;
+      width: 640px;
+      max-width: 100%;
+    }
+    video {
+      width: 100%;
+      height: auto;
     }
     #overlay {
       position: absolute;
@@ -25,21 +34,24 @@
       font-size: 2rem;
       display: none;
     }
-    #gameContainer {
-      position: relative;
-      width: 640px;
-      max-width: 100%;
+    #scoreDisplay, #timerDisplay, #speedMultiplier {
+      position: absolute;
+      font-size: 14px;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      padding: 5px 8px;
+      border-radius: 5px;
     }
-    video {
-      width: 100%;
-      height: auto;
-    }
-    #score {
-      margin-top: 10px;
-      font-size: 1.2rem;
+    #scoreDisplay { top: 10px; right: 10px; }
+    #timerDisplay { top: 10px; left: 10px; }
+    #speedMultiplier { top: 35px; right: 10px; }
+    #progressDisplay {
+      margin-top: 5px;
+      font-size: 16px;
+      text-align: center;
     }
     #skipBtn {
-      margin-top: 15px;
+      margin-top: 10px;
       padding: 10px 20px;
       font-size: 1rem;
       border: none;
@@ -49,87 +61,162 @@
       cursor: pointer;
       display: none;
     }
-    #skipBtn:hover {
-      background: #cc0000;
-    }
+    #skipBtn:hover { background: #cc0000; }
   </style>
 </head>
 <body>
-  <h1>Fruit Voice Game 🍎🍌🍇</h1>
+  <h1>Voice Game: Fruits, Vegetables & Animals 🍎🥕🐶</h1>
+
   <div id="gameContainer">
     <video id="speedrunVideo" src="speedrun.mp4"></video>
-    <div id="overlay">Word goes here</div>
+    <div id="overlay"></div>
+    <div id="scoreDisplay">Score: 0</div>
+    <div id="timerDisplay">Time: 0s</div>
+    <div id="speedMultiplier">x1</div>
   </div>
-  <div id="score">Score: 0</div>
+
+  <div id="progressDisplay"></div>
   <button id="skipBtn">Skip ❌</button>
 
   <script>
-    const fruits = ["apple", "banana", "orange", "grape", "pear", "peach", "mango", "strawberry", "cherry", "watermelon"];
-    let currentIndex = 0;
+    // Word list (problematic words removed)
+    const words = [
+      // Fruits
+      "apple","banana","orange","grape","peach","mango","strawberry","cherry","watermelon",
+      // Vegetables
+      "carrot","potato","tomato","onion","cucumber","pepper","broccoli","corn","pumpkin",
+      // Animals
+      "cat","dog","lion","tiger","elephant","monkey","zebra","giraffe","bear","rabbit"
+    ];
+
+    // Shuffle function
+    function shuffle(array){
+      for(let i=array.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [array[i],array[j]]=[array[j],array[i]];
+      }
+      return array;
+    }
+
+    let gameWords = shuffle([...words]).slice(0,10);
+    let currentWordIndex = 0;
     let score = 0;
     const overlay = document.getElementById("overlay");
-    const scoreDiv = document.getElementById("score");
-    const video = document.getElementById("speedrunVideo");
+    const scoreDisplay = document.getElementById("scoreDisplay");
+    const timerDisplay = document.getElementById("timerDisplay");
+    const speedMultiplierDisplay = document.getElementById("speedMultiplier");
+    const progressDisplay = document.getElementById("progressDisplay");
     const skipBtn = document.getElementById("skipBtn");
+    const video = document.getElementById("speedrunVideo");
+
+    let startTime = null;
+    let timerInterval = null;
     let recognition = null;
 
-    // Voice recognition setup
-    if ('webkitSpeechRecognition' in window) {
+    // --- Voice Recognition ---
+    if('webkitSpeechRecognition' in window){
       recognition = new webkitSpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      recognition.lang = "en-US";
-      recognition.onresult = (event) => {
-        let said = event.results[0][0].transcript.toLowerCase().trim();
-        console.log("You said:", said);
-        if (said.includes(fruits[currentIndex])) {
-          score += 10;
-          scoreDiv.textContent = "Score: " + score;
+      recognition.continuous=false;
+      recognition.interimResults=false;
+      recognition.lang="en-US";
+      recognition.onresult = (event)=>{
+        const said = event.results[0][0].transcript.toLowerCase().trim();
+        console.log("You said:",said);
+        if(said.includes(gameWords[currentWordIndex])){
+          score +=10;
+          updateScoreDisplay();
           nextRound();
         } else {
-          overlay.textContent = "Try again: " + fruits[currentIndex];
-          setTimeout(() => recognition.start(), 1000);
+          overlay.textContent = "Try again: "+gameWords[currentWordIndex];
+          setTimeout(()=>recognition.start(),1000);
         }
       };
     }
 
-    // Show word for student to say
-    function showWord() {
-      overlay.textContent = fruits[currentIndex];
-      overlay.style.display = "block";
-      skipBtn.style.display = "inline-block";
-      if (recognition) recognition.start();
+    // --- Timer ---
+    function startTimer(){
+      startTime = Date.now();
+      timerInterval = setInterval(()=>{
+        const elapsed = Math.floor((Date.now()-startTime)/1000);
+        timerDisplay.textContent = `Time: ${elapsed}s`;
+        updateMultiplierDisplay();
+      },1000);
     }
 
-    // Handle moving to next round
-    function nextRound() {
-      overlay.style.display = "none";
-      skipBtn.style.display = "none";
-      currentIndex++;
-      if (currentIndex < fruits.length) {
+    function stopTimer(){ clearInterval(timerInterval); }
+
+    // --- Speed Multiplier ---
+    function calculateSpeedMultiplier(elapsed){
+      if(elapsed===0) return 0;
+      if(elapsed<=30) return 2;
+      if(elapsed<=60) return 1.5;
+      if(elapsed<=90) return 1.2;
+      return 1;
+    }
+
+    function updateMultiplierDisplay(){
+      const elapsed = Math.floor((Date.now()-startTime)/1000);
+      speedMultiplierDisplay.textContent = `x${calculateSpeedMultiplier(elapsed)}`;
+    }
+
+    // --- Score ---
+    function updateScoreDisplay(){ scoreDisplay.textContent=`Score: ${score}`; }
+
+    // --- Show Word ---
+    function showWord(){
+      const currentWord = gameWords[currentWordIndex];
+      overlay.textContent=currentWord;
+      overlay.style.display="block";
+      skipBtn.style.display="inline-block";
+      progressDisplay.textContent=`Word ${currentWordIndex+1} of ${gameWords.length}`;
+      if(recognition) recognition.start();
+    }
+
+    // --- Next Round ---
+    function nextRound(){
+      overlay.style.display="none";
+      skipBtn.style.display="none";
+      currentWordIndex++;
+      if(currentWordIndex<gameWords.length){
         playVideoSegment();
       } else {
-        overlay.textContent = "Game Over! Final Score: " + score;
-        overlay.style.display = "block";
+        endGame();
       }
     }
 
-    // Skip button logic
-    skipBtn.addEventListener("click", () => {
-      nextRound(); // no points added
+    // --- Skip Button ---
+    skipBtn.addEventListener("click",()=>{
+      score=Math.max(0,score-5);       // deduct 5 points
+      updateScoreDisplay();
+      startTime=Date.now();             // reset multiplier
+      speedMultiplierDisplay.textContent="x0";
+      nextRound();
     });
 
-    // Play 5 seconds of video, then pause and show word
-    function playVideoSegment() {
+    // --- Video Segment ---
+    function playVideoSegment(){
       video.play();
-      setTimeout(() => {
+      setTimeout(()=>{
         video.pause();
         showWord();
-      }, 5000);
+      },5000);
     }
 
-    // Start game when video is ready
-    video.oncanplay = () => {
+    // --- End Game ---
+    function endGame(){
+      stopTimer();
+      const elapsed = Math.floor((Date.now()-startTime)/1000);
+      const multiplier = calculateSpeedMultiplier(elapsed);
+      const finalScore = Math.round(score*multiplier);
+
+      overlay.textContent="🎉 Game Over!";
+      progressDisplay.textContent=`Final Score: ${finalScore} / ${gameWords.length*10} (Time: ${elapsed}s, x${multiplier} speed bonus)`;
+      skipBtn.style.display="none";
+    }
+
+    // --- Start Game ---
+    video.oncanplay = ()=>{
+      startTimer();
       playVideoSegment();
     };
   </script>
