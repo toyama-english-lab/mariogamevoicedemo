@@ -30,9 +30,9 @@
       width: 640px;
       max-width: 100%;
     }
-    iframe, video {
+    video {
       width: 100%;
-      height: 360px;
+      height: auto;
     }
     #score {
       margin-top: 10px;
@@ -43,18 +43,9 @@
 <body>
   <h1>Fruit Voice Game 🍎🍌🍇</h1>
   <div id="gameContainer">
-    <!-- Desktop video -->
-    <video id="localVideo">
-      <source src="mario-speedrun.mp4" type="video/mp4">
-      Your browser does not support video.
-    </video>
-
-    <!-- Mobile YouTube embed -->
-    <div id="ytPlayer"></div>
-
+    <video id="speedrunVideo" src="speedrun.mp4"></video>
     <div id="overlay">Word goes here</div>
   </div>
-
   <div id="score">Score: 0</div>
 
   <script>
@@ -63,13 +54,10 @@
     let score = 0;
     const overlay = document.getElementById("overlay");
     const scoreDiv = document.getElementById("score");
-    const localVideo = document.getElementById("localVideo");
-    const ytPlayerDiv = document.getElementById("ytPlayer");
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    let ytPlayer = null;
+    const video = document.getElementById("speedrunVideo");
     let recognition = null;
 
-    // --- Voice Recognition Setup ---
+    // Voice recognition setup
     if ('webkitSpeechRecognition' in window) {
       recognition = new webkitSpeechRecognition();
       recognition.continuous = false;
@@ -89,13 +77,14 @@
       };
     }
 
-    // --- Game Logic ---
+    // Show word for student to say
     function showWord() {
       overlay.textContent = fruits[currentIndex];
       overlay.style.display = "block";
       if (recognition) recognition.start();
     }
 
+    // Handle moving to next round
     function nextRound() {
       overlay.style.display = "none";
       currentIndex++;
@@ -107,48 +96,19 @@
       }
     }
 
+    // Play 5 seconds of video, then pause and show word
     function playVideoSegment() {
-      if (isMobile && ytPlayer) {
-        ytPlayer.playVideo();
-        setTimeout(() => {
-          ytPlayer.pauseVideo();
-          showWord();
-        }, 5000);
-      } else {
-        localVideo.play();
-        setTimeout(() => {
-          localVideo.pause();
-          showWord();
-        }, 5000);
-      }
+      video.play();
+      setTimeout(() => {
+        video.pause();
+        showWord();
+      }, 5000);
     }
 
-    // --- Initialize ---
-    if (isMobile) {
-      localVideo.style.display = "none";
-      const tag = document.createElement('script');
-      tag.src = "https://www.youtube.com/iframe_api";
-      document.body.appendChild(tag);
-
-      window.onYouTubeIframeAPIReady = function() {
-        ytPlayer = new YT.Player('ytPlayer', {
-          height: '360',
-          width: '640',
-          videoId: 'XKmQahaiCfs',
-          playerVars: { 'autoplay': 0, 'controls': 0 },
-          events: {
-            'onReady': () => {
-              playVideoSegment();
-            }
-          }
-        });
-      }
-    } else {
-      ytPlayerDiv.style.display = "none";
-      localVideo.addEventListener("loadedmetadata", () => {
-        playVideoSegment();
-      });
-    }
+    // Start game when video is ready
+    video.oncanplay = () => {
+      playVideoSegment();
+    };
   </script>
 </body>
 </html>
